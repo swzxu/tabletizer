@@ -1,0 +1,64 @@
+# built application files
+*.apk
+*.ap_
+*.aab
+output.json
+output-metadata.json
+out/
+
+# files for the dex VM
+*.dex
+
+# Java class files
+*.class
+
+# generated files
+bin/
+gen/
+
+# Local configuration file (sdk path, etc)
+local.properties
+
+# Windows thumbnail db
+Thumbs.db
+
+# OSX files
+.DS_Store
+
+# Eclipse project files
+.classpath
+.project
+
+# Android Studio
+.idea/
+.gradle/
+build/
+app/build/
+*.iml
+
+# Compiled JNI libraries folder
+**/jniLibs
+app/.externalNativeBuild/
+
+# NDK stuff
+.cxx/
+
+__pycache__/
+*.py[cod]
+*$py.class
+
+venv/
+.venv/
+env/
+.env/
+
+dist/
+desktop_client/build/
+desktop_client/dist/
+desktop_client/*.spec
+*.spec
+
+
+desktop_client/bin/
+
+AndroidTablet.json

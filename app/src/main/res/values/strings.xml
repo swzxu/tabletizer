@@ -1,0 +1,5 @@
+<resources>
+
+    <string name="app_name">tabletizer!</string>
+    <string name="service_name">USB/IP Server Service</string>
+</resources>

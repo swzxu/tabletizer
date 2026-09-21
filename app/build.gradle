@@ -1,0 +1,29 @@
+apply plugin: 'com.android.application'
+
+android {
+    namespace "org.cgutman.usbipserverforandroid"
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.hrdcoreee.tabletizer"
+        minSdk 21
+        targetSdk 34
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.txt'
+            signingConfig signingConfigs.debug
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core:1.13.1'
+    implementation 'androidx.activity:activity:1.9.1'
+}
+
+configurations.implementation {
+    exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'
+}
