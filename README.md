@@ -1,6 +1,6 @@
 # tabletizer!
 
-A tool that allows you to use your Android device as a graphics tablet on Windows, it was created primarily for osu!.
+A tool that allows you to use your Android device as a graphics tablet on Windows, it was created primarily for osu!
 
 The project consists of two components:
 1. An Android application that acts as a USB/IP server, capturing touch and pen inputs.
