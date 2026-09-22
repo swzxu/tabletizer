@@ -1,6 +1,6 @@
 # tabletizer!
 
-A tool that allows you to use your Android device as a graphics tablet on Windows, it was created primarily for osu!.
+A tool that allows you to use your Android device as a graphics tablet on Windows, it was created primarily for osu!
 
 The project consists of two components:
 1. An Android application that acts as a USB/IP server, capturing touch and pen inputs.
@@ -47,5 +47,5 @@ To compile the APK using Gradle:
 To build a standalone Windows executable, ensure Python 3 is installed and run:
 ```bash
 pip install pyinstaller
-pyinstaller --noconfirm --onefile --windowed desktop_client/main.py
+pyinstaller --noconfirm --onefile --icon NONE --windowed desktop_client/main.py
 ```
