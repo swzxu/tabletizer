@@ -132,74 +132,146 @@ public class UsbIpConfig extends ComponentActivity {
     }
 
     private void showMainMenu() {
-        String[] menuItems = new String[]{
-                "Zone size: " + tabletAreaView.getAreaScale().title,
-                "Position: " + tabletAreaView.getAreaPosition().title,
-                "About"
-        };
+        final android.app.Dialog dialog = new android.app.Dialog(this);
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        dialog.setContentView(org.cgutman.usbipserverforandroid.R.layout.dialog_settings_modern);
+        dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        
+        // Make the dialog wider like a bottom sheet or modern dialog
+        android.view.WindowManager.LayoutParams lp = new android.view.WindowManager.LayoutParams();
+        lp.copyFrom(dialog.getWindow().getAttributes());
+        lp.width = (int)(getResources().getDisplayMetrics().widthPixels * 0.9);
+        dialog.getWindow().setAttributes(lp);
 
-        new AlertDialog.Builder(this)
-                .setTitle("Settings")
-                .setItems(menuItems, (dialog, which) -> {
-                    switch (which) {
-                        case 0:
-                            showScaleDialog();
-                            break;
-                        case 1:
-                            showPositionDialog();
-                            break;
-                        case 2:
-                            Intent browserIntent = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/swzxu/tabletizer"));
-                            startActivity(browserIntent);
-                            break;
-                    }
-                })
-                .setNegativeButton("Close", null)
-                .show();
+        android.widget.TextView tvZone = dialog.findViewById(org.cgutman.usbipserverforandroid.R.id.tv_zone_size_val);
+        tvZone.setText(tabletAreaView.getAreaScale().title);
+        
+        android.widget.TextView tvPos = dialog.findViewById(org.cgutman.usbipserverforandroid.R.id.tv_position_val);
+        tvPos.setText(tabletAreaView.getAreaPosition().title);
+
+        dialog.findViewById(org.cgutman.usbipserverforandroid.R.id.btn_zone_size).setOnClickListener(v -> {
+            dialog.dismiss();
+            showScaleDialog();
+        });
+
+        dialog.findViewById(org.cgutman.usbipserverforandroid.R.id.btn_position).setOnClickListener(v -> {
+            dialog.dismiss();
+            showPositionDialog();
+        });
+
+        dialog.findViewById(org.cgutman.usbipserverforandroid.R.id.btn_about).setOnClickListener(v -> {
+            dialog.dismiss();
+            Intent browserIntent = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/swzxu/tabletizer"));
+            startActivity(browserIntent);
+        });
+
+        dialog.findViewById(org.cgutman.usbipserverforandroid.R.id.btn_close).setOnClickListener(v -> dialog.dismiss());
+
+        dialog.show();
     }
 
     private void showScaleDialog() {
         TabletAreaView.AreaScale[] options = TabletAreaView.AreaScale.values();
-        String[] titles = new String[options.length];
-        int selected = 0;
-        for (int i = 0; i < options.length; i++) {
-            titles[i] = options[i].title;
-            if (options[i] == tabletAreaView.getAreaScale()) {
-                selected = i;
+        
+        final android.app.Dialog dialog = new android.app.Dialog(this);
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        dialog.setContentView(org.cgutman.usbipserverforandroid.R.layout.dialog_list_modern);
+        dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        
+        android.view.WindowManager.LayoutParams lp = new android.view.WindowManager.LayoutParams();
+        lp.copyFrom(dialog.getWindow().getAttributes());
+        lp.width = (int)(getResources().getDisplayMetrics().widthPixels * 0.9);
+        dialog.getWindow().setAttributes(lp);
+
+        android.widget.TextView tvTitle = dialog.findViewById(org.cgutman.usbipserverforandroid.R.id.tv_dialog_title);
+        tvTitle.setText("Working zone size");
+
+        android.widget.LinearLayout container = dialog.findViewById(org.cgutman.usbipserverforandroid.R.id.ll_options_container);
+        
+        for (final TabletAreaView.AreaScale option : options) {
+            android.widget.TextView tv = new android.widget.TextView(this);
+            tv.setText(option.title);
+            tv.setTextSize(16);
+            if (option == tabletAreaView.getAreaScale()) {
+                tv.setTextColor(android.graphics.Color.parseColor("#4ADE80")); // Green for selected
+                tv.setTypeface(null, android.graphics.Typeface.BOLD);
+            } else {
+                tv.setTextColor(android.graphics.Color.WHITE);
             }
+            tv.setPadding(0, 30, 0, 30);
+            
+            // Add ripple effect
+            android.util.TypedValue outValue = new android.util.TypedValue();
+            getTheme().resolveAttribute(android.R.attr.selectableItemBackground, outValue, true);
+            tv.setBackgroundResource(outValue.resourceId);
+            tv.setClickable(true);
+            tv.setFocusable(true);
+            
+            tv.setOnClickListener(v -> {
+                tabletAreaView.setAreaScale(option);
+                updateButtonLabel();
+                dialog.dismiss();
+            });
+            container.addView(tv);
         }
 
-        new AlertDialog.Builder(this)
-                .setTitle("Working zone size")
-                .setSingleChoiceItems(titles, selected, (dialog, which) -> {
-                    tabletAreaView.setAreaScale(options[which]);
-                    updateButtonLabel();
-                    dialog.dismiss();
-                })
-                .setNegativeButton("Back", (dialog, which) -> showMainMenu())
-                .show();
+        dialog.findViewById(org.cgutman.usbipserverforandroid.R.id.btn_back).setOnClickListener(v -> {
+            dialog.dismiss();
+            showMainMenu();
+        });
+
+        dialog.show();
     }
 
     private void showPositionDialog() {
         TabletAreaView.AreaPosition[] options = TabletAreaView.AreaPosition.values();
-        String[] titles = new String[options.length];
-        int selected = 0;
-        for (int i = 0; i < options.length; i++) {
-            titles[i] = options[i].title;
-            if (options[i] == tabletAreaView.getAreaPosition()) {
-                selected = i;
+        
+        final android.app.Dialog dialog = new android.app.Dialog(this);
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        dialog.setContentView(org.cgutman.usbipserverforandroid.R.layout.dialog_list_modern);
+        dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        
+        android.view.WindowManager.LayoutParams lp = new android.view.WindowManager.LayoutParams();
+        lp.copyFrom(dialog.getWindow().getAttributes());
+        lp.width = (int)(getResources().getDisplayMetrics().widthPixels * 0.9);
+        dialog.getWindow().setAttributes(lp);
+
+        android.widget.TextView tvTitle = dialog.findViewById(org.cgutman.usbipserverforandroid.R.id.tv_dialog_title);
+        tvTitle.setText("Position");
+
+        android.widget.LinearLayout container = dialog.findViewById(org.cgutman.usbipserverforandroid.R.id.ll_options_container);
+        
+        for (final TabletAreaView.AreaPosition option : options) {
+            android.widget.TextView tv = new android.widget.TextView(this);
+            tv.setText(option.title);
+            tv.setTextSize(16);
+            if (option == tabletAreaView.getAreaPosition()) {
+                tv.setTextColor(android.graphics.Color.parseColor("#4ADE80")); // Green for selected
+                tv.setTypeface(null, android.graphics.Typeface.BOLD);
+            } else {
+                tv.setTextColor(android.graphics.Color.WHITE);
             }
+            tv.setPadding(0, 30, 0, 30);
+            
+            android.util.TypedValue outValue = new android.util.TypedValue();
+            getTheme().resolveAttribute(android.R.attr.selectableItemBackground, outValue, true);
+            tv.setBackgroundResource(outValue.resourceId);
+            tv.setClickable(true);
+            tv.setFocusable(true);
+            
+            tv.setOnClickListener(v -> {
+                tabletAreaView.setAreaPosition(option);
+                dialog.dismiss();
+            });
+            container.addView(tv);
         }
 
-        new AlertDialog.Builder(this)
-                .setTitle("Working zone position")
-                .setSingleChoiceItems(titles, selected, (dialog, which) -> {
-                    tabletAreaView.setAreaPosition(options[which]);
-                    updateButtonLabel();
-                    dialog.dismiss();
-                })
-                .setNegativeButton("Back", (dialog, which) -> showMainMenu())
-                .show();
+        dialog.findViewById(org.cgutman.usbipserverforandroid.R.id.btn_back).setOnClickListener(v -> {
+            dialog.dismiss();
+            showMainMenu();
+        });
+
+        dialog.show();
     }
 
     @Override

@@ -11,6 +11,12 @@ import webbrowser
 import urllib.request
 import winreg
 import tkinter as tk
+import customtkinter as ctk
+ctk.set_appearance_mode('dark')
+ctk.set_default_color_theme('green')
+import customtkinter as ctk
+ctk.set_appearance_mode('dark')
+ctk.set_default_color_theme('green')
 from tkinter import ttk, messagebox, scrolledtext
 
 PLATFORM_TOOLS_URL = "https://dl.google.com/android/repository/platform-tools-latest-windows.zip"
@@ -118,181 +124,142 @@ def run_as_admin():
         messagebox.showerror("Error", f"Failed to restart as admin: {e}")
 
 
-class OsuTabletCompanion(tk.Tk):
+class OsuTabletCompanion(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("tabletizer!")
-        self.geometry("780x640")
-        self.minsize(700, 580)
+        self.geometry("980x750")
+        self.minsize(850, 650)
         self.configure(bg="#121214")
+
+        # Set application icon
+        if hasattr(sys, '_MEIPASS'):
+            icon_path = os.path.join(sys._MEIPASS, "icon.ico")
+        else:
+            icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icon.ico")
+        
+        if os.path.exists(icon_path):
+            self.iconbitmap(icon_path)
 
         self.adb_path = None
         self.usbip_path = None
         self.is_connected = False
 
-        self.setup_styles()
+        
         self.build_ui()
 
         # Initial check in background
         self.after(300, self.refresh_environment)
 
-    def setup_styles(self):
-        self.style = ttk.Style(self)
-        self.style.theme_use("clam")
-
-        # Dark theme color palette
-        self.style.configure(".", background="#121214", foreground="#E4E4E7", font=("Segoe UI", 10))
-        self.style.configure("Card.TFrame", background="#1E1E24", relief="flat")
-        self.style.configure("Header.TLabel", font=("Segoe UI", 13, "bold"), foreground="#38BDF8", background="#1E1E24")
-        self.style.configure("SubHeader.TLabel", font=("Segoe UI", 11, "bold"), foreground="#F43F5E", background="#1E1E24")
-        self.style.configure("Status.TLabel", font=("Segoe UI", 9), background="#1E1E24")
-        self.style.configure("BadgeGreen.TLabel", foreground="#4ADE80", background="#1E1E24", font=("Segoe UI", 9, "bold"))
-        self.style.configure("BadgeRed.TLabel", foreground="#F87171", background="#1E1E24", font=("Segoe UI", 9, "bold"))
-        self.style.configure("BadgeYellow.TLabel", foreground="#FBBF24", background="#1E1E24", font=("Segoe UI", 9, "bold"))
-        self.style.configure("TEntry", fieldbackground="#27272A", foreground="#FFFFFF", bordercolor="#3F3F46", lightcolor="#3F3F46", darkcolor="#3F3F46")
-        self.style.map("TEntry", fieldbackground=[("disabled", "#1E1E24")], foreground=[("disabled", "#71717A")])
-
-        # Buttons
-        self.style.configure("Action.TButton", font=("Segoe UI", 10, "bold"), padding=6)
-        self.style.configure("Connect.TButton", font=("Segoe UI", 12, "bold"), padding=10, foreground="#000000", background="#4ADE80")
-        self.style.configure("Disconnect.TButton", font=("Segoe UI", 12, "bold"), padding=10, foreground="#FFFFFF", background="#EF4444")
-
     def build_ui(self):
-        # Admin banner if not running as admin
         if not is_admin():
-            banner = tk.Frame(self, bg="#DC2626", padx=10, pady=6)
+            banner = ctk.CTkFrame(self, fg_color="#DC2626", corner_radius=0, height=35)
             banner.pack(fill="x")
-            lbl = tk.Label(banner, text="Administrator rights are required for USBip driver binding! (maybe)",
-                           bg="#DC2626", fg="#FFFFFF", font=("Segoe UI", 9, "bold"))
-            lbl.pack(side="left", padx=5)
-            btn = tk.Button(banner, text="Restart as Admin", command=run_as_admin,
-                            bg="#FFFFFF", fg="#DC2626", font=("Segoe UI", 9, "bold"), relief="flat", cursor="hand2")
-            btn.pack(side="right", padx=5)
+            lbl = ctk.CTkLabel(banner, text="Administrator rights are required for USBip driver binding! (maybe)",
+                               text_color="#FFFFFF", font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"))
+            lbl.pack(side="left", padx=10, pady=5)
+            btn = ctk.CTkButton(banner, text="Restart as Admin", command=run_as_admin,
+                                fg_color="#FFFFFF", text_color="#DC2626", hover_color="#F3F4F6", font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"), width=120)
+            btn.pack(side="right", padx=10, pady=5)
 
-        def create_modern_button(parent, text, bg, fg, hover_bg, command, font=("Segoe UI", 9, "bold"), padx=10, pady=5, side=None, pack_kwargs=None):
-            btn = tk.Label(parent, text=text, bg=bg, fg=fg, font=font, padx=padx, pady=pady, cursor="hand2")
-            btn.bind("<Enter>", lambda e: btn.configure(bg=hover_bg))
-            btn.bind("<Leave>", lambda e: btn.configure(bg=bg))
-            btn.bind("<Button-1>", lambda e: command())
-            if pack_kwargs:
-                if "row" in pack_kwargs:
-                    btn.grid(**pack_kwargs)
-                else:
-                    btn.pack(**pack_kwargs)
-            elif side:
-                btn.pack(side=side, padx=5, pady=4)
-            return btn
+        main_container = ctk.CTkFrame(self, fg_color="transparent")
+        main_container.pack(fill="both", expand=True, padx=25, pady=25)
 
-        self.create_modern_button = create_modern_button
-
-        main_container = tk.Frame(self, bg="#121214", padx=20, pady=16)
-        main_container.pack(fill="both", expand=True)
-
-        # Title section
-        top_bar = tk.Frame(main_container, bg="#121214")
+        top_bar = ctk.CTkFrame(main_container, fg_color="transparent")
         top_bar.pack(fill="x", pady=(0, 15))
-        tk.Label(top_bar, text="tabletizer!", font=("Segoe UI", 18, "bold"),
-                 fg="#38BDF8", bg="#121214").pack(side="left")
+        ctk.CTkLabel(top_bar, text="tabletizer!", font=ctk.CTkFont(family="Segoe UI", size=24, weight="bold"),
+                     text_color="#4ADE80").pack(side="left")
+        ctk.CTkButton(top_bar, text="Refresh Tools", command=self.refresh_environment,
+                      fg_color="#222222", text_color="#FFFFFF", hover_color="#333333", 
+                      font=ctk.CTkFont(family="Segoe UI", size=12), width=120).pack(side="right")
+
+        dep_card = ctk.CTkFrame(main_container, fg_color="#1A1A1D", corner_radius=12)
+        dep_card.pack(fill="x", pady=8, ipady=10, ipadx=10)
+
+        ctk.CTkLabel(dep_card, text="Requirements & Tools", font=ctk.CTkFont(family="Segoe UI", size=18, weight="bold"), text_color="#FFFFFF").grid(row=0, column=0, columnspan=3, sticky="w", pady=(10, 15), padx=15)
+
+        font_status = ctk.CTkFont(family="Segoe UI", size=13)
+        font_badge = ctk.CTkFont(family="Segoe UI", size=13, weight="bold")
+        font_btn = ctk.CTkFont(family="Segoe UI", size=12, weight="bold")
+
+        ctk.CTkLabel(dep_card, text="Android Platform Tools (ADB):", font=font_status, text_color="#AAAAAA").grid(row=1, column=0, sticky="w", pady=8, padx=15)
+        self.lbl_adb_status = ctk.CTkLabel(dep_card, text="Checking...", font=font_badge, text_color="#FBBF24")
+        self.lbl_adb_status.grid(row=1, column=1, sticky="w", padx=15)
+        self.btn_dl_adb = ctk.CTkButton(dep_card, text="Download ADB", command=self.start_download_adb,
+                                        fg_color="#444444", text_color="#FFFFFF", hover_color="#555555", font=font_btn, width=120)
+        self.btn_dl_adb.grid(row=1, column=2, sticky="e", padx=15)
         
-        self.create_modern_button(top_bar, text="Refresh Tools", command=self.refresh_environment,
-                                  bg="#27272A", fg="#E4E4E7", hover_bg="#3F3F46", 
-                                  font=("Segoe UI", 9), padx=12, pady=6, pack_kwargs={"side": "right"})
+        ctk.CTkLabel(dep_card, text="USBip Driver & Client:", font=font_status, text_color="#AAAAAA").grid(row=2, column=0, sticky="w", pady=8, padx=15)
+        self.lbl_usbip_status = ctk.CTkLabel(dep_card, text="Checking...", font=font_badge, text_color="#FBBF24")
+        self.lbl_usbip_status.grid(row=2, column=1, sticky="w", padx=15)
+        self.btn_dl_usbip = ctk.CTkButton(dep_card, text="Get USBip", command=self.start_download_usbip,
+                                          fg_color="#444444", text_color="#FFFFFF", hover_color="#555555", font=font_btn, width=120)
+        self.btn_dl_usbip.grid(row=2, column=2, sticky="e", padx=15)
 
-        # Top Card: Dependencies & Environment
-        dep_card = ttk.Frame(main_container, style="Card.TFrame", padding=12)
-        dep_card.pack(fill="x", pady=4)
+        ctk.CTkLabel(dep_card, text="OpenTabletDriver Profile:", font=font_status, text_color="#AAAAAA").grid(row=3, column=0, sticky="w", pady=8, padx=15)
+        self.lbl_otd_status = ctk.CTkLabel(dep_card, text="Checking...", font=font_badge, text_color="#FBBF24")
+        self.lbl_otd_status.grid(row=3, column=1, sticky="w", padx=15)
 
-        ttk.Label(dep_card, text="Requirements & Tools", style="Header.TLabel").grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 8))
+        otd_btn_frame = ctk.CTkFrame(dep_card, fg_color="transparent")
+        otd_btn_frame.grid(row=3, column=2, sticky="e", padx=15)
+        self.btn_gen_otd = ctk.CTkButton(otd_btn_frame, text="Auto-Generate Profile", command=self.generate_otd_config,
+                                         fg_color="#4ADE80", text_color="#000000", hover_color="#22C55E", font=font_btn, width=150)
+        self.btn_gen_otd.pack(side="left", padx=(0, 10))
+        self.btn_manual_otd = ctk.CTkButton(otd_btn_frame, text="Manual Config", command=self.manual_otd_config,
+                                            fg_color="#444444", text_color="#FFFFFF", hover_color="#555555", font=font_btn, width=120)
+        self.btn_manual_otd.pack(side="left", padx=(0, 10))
+        self.btn_sync_otd = ctk.CTkButton(otd_btn_frame, text="Sync Existing", command=self.sync_otd_config,
+                                          fg_color="#222222", text_color="#AAAAAA", hover_color="#333333", font=ctk.CTkFont(family="Segoe UI", size=12), width=100)
+        self.btn_sync_otd.pack(side="left")
 
-        # 1. Platform Tools (ADB)
-        ttk.Label(dep_card, text="Android Platform Tools (ADB):", style="Status.TLabel").grid(row=1, column=0, sticky="w", pady=4)
-        self.lbl_adb_status = ttk.Label(dep_card, text="Checking...", style="BadgeYellow.TLabel")
-        self.lbl_adb_status.grid(row=1, column=1, sticky="w", padx=10, pady=4)
-        self.btn_dl_adb = self.create_modern_button(dep_card, text="Download ADB", command=self.start_download_adb,
-                                    bg="#0284C7", fg="#FFFFFF", hover_bg="#0369A1", font=("Segoe UI", 8, "bold"),
-                                    pack_kwargs={"row": 1, "column": 2, "sticky": "e", "padx": 5, "pady": 4})
-        
-        # 2. USBip Tool
-        ttk.Label(dep_card, text="USBip Driver & Client:", style="Status.TLabel").grid(row=2, column=0, sticky="w", pady=4)
-        self.lbl_usbip_status = ttk.Label(dep_card, text="Checking...", style="BadgeYellow.TLabel")
-        self.lbl_usbip_status.grid(row=2, column=1, sticky="w", padx=10, pady=4)
-        self.btn_dl_usbip = self.create_modern_button(dep_card, text="Get USBip", command=self.start_download_usbip,
-                                      bg="#0284C7", fg="#FFFFFF", hover_bg="#0369A1", font=("Segoe UI", 8, "bold"),
-                                      pack_kwargs={"row": 2, "column": 2, "sticky": "e", "padx": 5, "pady": 4})
+        dep_card.columnconfigure(0, weight=0, minsize=200)
+        dep_card.columnconfigure(1, weight=1)
+        dep_card.columnconfigure(2, weight=0)
 
-        # 3. OpenTabletDriver Config
-        ttk.Label(dep_card, text="OpenTabletDriver Profile:", style="Status.TLabel").grid(row=3, column=0, sticky="w", pady=4)
-        self.lbl_otd_status = ttk.Label(dep_card, text="Checking...", style="BadgeYellow.TLabel")
-        self.lbl_otd_status.grid(row=3, column=1, sticky="w", padx=10, pady=4)
+        ctrl_card = ctk.CTkFrame(main_container, fg_color="#1A1A1D", corner_radius=12)
+        ctrl_card.pack(fill="x", pady=10, ipady=10, ipadx=10)
 
-        otd_btn_frame = tk.Frame(dep_card, bg="#1E1E24")
-        otd_btn_frame.grid(row=3, column=2, sticky="e", padx=5, pady=4)
+        ctk.CTkLabel(ctrl_card, text="Connection Panel", font=ctk.CTkFont(family="Segoe UI", size=18, weight="bold"), text_color="#FFFFFF").pack(anchor="w", pady=(10, 10), padx=15)
 
-        self.btn_gen_otd = self.create_modern_button(otd_btn_frame, text="Auto-Generate Profile", command=self.generate_otd_config,
-                                     bg="#059669", fg="#FFFFFF", hover_bg="#047857", font=("Segoe UI", 8, "bold"),
-                                     pack_kwargs={"side": "left", "padx": (0, 4)})
+        device_frame = ctk.CTkFrame(ctrl_card, fg_color="transparent")
+        device_frame.pack(fill="x", pady=6, padx=15)
+        ctk.CTkLabel(device_frame, text="Connected Android Device:", font=font_status, text_color="#AAAAAA").pack(side="left")
+        self.lbl_device_info = ctk.CTkLabel(device_frame, text="Scanning...", font=font_badge, text_color="#FBBF24")
+        self.lbl_device_info.pack(side="left", padx=15)
 
-        self.btn_manual_otd = self.create_modern_button(otd_btn_frame, text="Manual Config", command=self.manual_otd_config,
-                                        bg="#2563EB", fg="#FFFFFF", hover_bg="#1D4ED8", font=("Segoe UI", 8, "bold"),
-                                        pack_kwargs={"side": "left", "padx": (0, 4)})
+        mode_frame = ctk.CTkFrame(ctrl_card, fg_color="transparent")
+        mode_frame.pack(fill="x", pady=10, padx=15)
+        ctk.CTkLabel(mode_frame, text="Connection Mode:", font=font_status, text_color="#AAAAAA").pack(side="left", padx=(0, 15))
 
-        self.btn_sync_otd = self.create_modern_button(otd_btn_frame, text="Sync Existing", command=self.sync_otd_config,
-                                      bg="#3F3F46", fg="#FFFFFF", hover_bg="#52525B", font=("Segoe UI", 8),
-                                      pack_kwargs={"side": "left"})
+        self.conn_mode = ctk.StringVar(value="wired")
+        def mode_callback(value):
+            if value == "Wired USB":
+                self.conn_mode.set("wired")
+                self.entry_ip.configure(state="disabled")
+            else:
+                self.conn_mode.set("wireless")
+                self.entry_ip.configure(state="normal")
+                
+        self.seg_button = ctk.CTkSegmentedButton(mode_frame, values=["Wired USB", "Wireless IP"], command=mode_callback,
+                                                 selected_color="#4ADE80", selected_hover_color="#22C55E", unselected_color="#444444", unselected_hover_color="#555555", text_color="#FFFFFF")
+        self.seg_button.set("Wired USB")
+        self.seg_button.pack(side="left")
 
-        dep_card.columnconfigure(0, weight=2)
-        dep_card.columnconfigure(1, weight=3)
-        dep_card.columnconfigure(2, weight=2)
-
-        # Middle Card: Connection Controls
-        ctrl_card = ttk.Frame(main_container, style="Card.TFrame", padding=12)
-        ctrl_card.pack(fill="x", pady=4)
-
-        ttk.Label(ctrl_card, text="Connection Panel", style="Header.TLabel").pack(anchor="w", pady=(0, 4))
-
-        device_frame = tk.Frame(ctrl_card, bg="#1E1E24")
-        device_frame.pack(fill="x", pady=4)
-        tk.Label(device_frame, text="Connected Android Device:", font=("Segoe UI", 10), bg="#1E1E24", fg="#A1A1AA").pack(side="left")
-        self.lbl_device_info = tk.Label(device_frame, text="Scanning...", font=("Segoe UI", 10, "bold"), bg="#1E1E24", fg="#FBBF24")
-        self.lbl_device_info.pack(side="left", padx=8)
-
-        # Connection Mode Radio / Inputs
-        mode_frame = tk.Frame(ctrl_card, bg="#1E1E24")
-        mode_frame.pack(fill="x", pady=4)
-
-        self.conn_mode = tk.StringVar(value="wired")
-        r_wired = tk.Radiobutton(mode_frame, text="Wired USB (Lowest Latency, recommended)",
-                                 variable=self.conn_mode, value="wired", command=self.update_mode_ui,
-                                 bg="#1E1E24", fg="#E4E4E7", selectcolor="#27272A", activebackground="#1E1E24", font=("Segoe UI", 9))
-        r_wired.pack(anchor="w")
-
-        wireless_box = tk.Frame(mode_frame, bg="#1E1E24")
-        wireless_box.pack(anchor="w", fill="x", pady=(2, 0))
-        r_wifi = tk.Radiobutton(wireless_box, text="Wireless (Wi-Fi IP):",
-                                variable=self.conn_mode, value="wireless", command=self.update_mode_ui,
-                                bg="#1E1E24", fg="#E4E4E7", selectcolor="#27272A", activebackground="#1E1E24", font=("Segoe UI", 9))
-        r_wifi.pack(side="left")
-        self.entry_ip = tk.Entry(wireless_box, width=16, font=("Segoe UI", 9), bg="#27272A", fg="#FFFFFF", insertbackground="#FFFFFF", relief="flat")
+        self.entry_ip = ctk.CTkEntry(mode_frame, width=150, placeholder_text="192.168.1.100", font=font_status, border_color="#333333", border_width=1)
         self.entry_ip.insert(0, "192.168.1.100")
-        self.entry_ip.pack(side="left", padx=6)
-        self.entry_ip.config(state="disabled")
+        self.entry_ip.pack(side="left", padx=20)
+        self.entry_ip.configure(state="disabled")
 
-        # Action Buttons
-        btn_box = tk.Frame(ctrl_card, bg="#1E1E24")
-        btn_box.pack(fill="x", pady=(8, 2))
+        self.btn_connect = ctk.CTkButton(ctrl_card, text="Connect device", command=self.on_connect_clicked,
+                                         fg_color="#4ADE80", text_color="#000000", hover_color="#22C55E", font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"), height=50)
+        self.btn_connect.pack(fill="x", pady=(15, 5), padx=15)
 
-        self.btn_connect = self.create_modern_button(btn_box, text="Connect device", command=self.on_connect_clicked,
-                                     bg="#22C55E", fg="#000000", hover_bg="#16A34A", font=("Segoe UI", 11, "bold"),
-                                     pack_kwargs={"expand": True, "fill": "x", "ipady": 5})
+        log_frame = ctk.CTkFrame(main_container, fg_color="transparent")
+        log_frame.pack(fill="both", expand=True, pady=(15, 0))
+        ctk.CTkLabel(log_frame, text="Activity Log", font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"), text_color="#AAAAAA").pack(anchor="w")
 
-        # Bottom: Activity Log
-        log_frame = tk.Frame(main_container, bg="#121214")
-        log_frame.pack(fill="both", expand=True, pady=(4, 0))
-        tk.Label(log_frame, text="Activity Log", font=("Segoe UI", 9, "bold"), fg="#A1A1AA", bg="#121214").pack(anchor="w")
-
-        self.log_text = scrolledtext.ScrolledText(log_frame, height=8, bg="#18181B", fg="#A1A1AA",
-                                                   font=("Consolas", 9), insertbackground="#FFFFFF", relief="flat", borderwidth=0)
-        self.log_text.pack(fill="both", expand=True, pady=4)
+        self.log_text = ctk.CTkTextbox(log_frame, fg_color="#18181B", text_color="#AAAAAA", font=ctk.CTkFont(family="Consolas", size=12), corner_radius=8, border_width=0)
+        self.log_text.pack(fill="both", expand=True, pady=8)
 
     def log(self, text):
         self.log_text.insert(tk.END, text + "\n")
@@ -300,9 +267,9 @@ class OsuTabletCompanion(tk.Tk):
 
     def update_mode_ui(self):
         if self.conn_mode.get() == "wireless":
-            self.entry_ip.config(state="normal")
+            self.entry_ip.configure(state="normal")
         else:
-            self.entry_ip.config(state="disabled")
+            self.entry_ip.configure(state="disabled")
 
     # ---------------- Environment Detection ----------------
     def refresh_environment(self):
@@ -316,26 +283,26 @@ class OsuTabletCompanion(tk.Tk):
         local_adb = os.path.join(BIN_DIR, "platform-tools", "adb.exe")
         if adb:
             self.adb_path = adb
-            self.lbl_adb_status.config(text="Installed (System)", style="BadgeGreen.TLabel")
-            self.btn_dl_adb.config(state="disabled")
+            self.lbl_adb_status.configure(text="Installed (System)", text_color="#4ADE80")
+            self.btn_dl_adb.configure(state="disabled")
         elif os.path.exists(local_adb):
             self.adb_path = local_adb
-            self.lbl_adb_status.config(text="Installed (Local)", style="BadgeGreen.TLabel")
-            self.btn_dl_adb.config(state="disabled")
+            self.lbl_adb_status.configure(text="Installed (Local)", text_color="#4ADE80")
+            self.btn_dl_adb.configure(state="disabled")
         else:
             self.adb_path = None
-            self.lbl_adb_status.config(text="Missing", style="BadgeRed.TLabel")
-            self.btn_dl_adb.config(state="normal")
+            self.lbl_adb_status.configure(text="Missing", text_color="#EF4444")
+            self.btn_dl_adb.configure(state="normal")
 
         # 2. Check USBip
         path, status = find_installed_usbip(BIN_DIR)
         self.usbip_path = path
         if path:
-            self.lbl_usbip_status.config(text=status, style="BadgeGreen.TLabel")
-            self.btn_dl_usbip.config(state="disabled")
+            self.lbl_usbip_status.configure(text=status, text_color="#4ADE80")
+            self.btn_dl_usbip.configure(state="disabled")
         else:
-            self.lbl_usbip_status.config(text="Missing", style="BadgeRed.TLabel")
-            self.btn_dl_usbip.config(state="normal")
+            self.lbl_usbip_status.configure(text="Missing", text_color="#EF4444")
+            self.btn_dl_usbip.configure(state="normal")
 
         # 3. Check OTD Config
         otd_dirs = self.find_otd_dirs()
@@ -355,9 +322,9 @@ class OsuTabletCompanion(tk.Tk):
                 break
 
         if installed_name:
-            self.lbl_otd_status.config(text=f"Installed ({installed_name})", style="BadgeGreen.TLabel")
+            self.lbl_otd_status.configure(text=f"Installed ({installed_name})", text_color="#4ADE80")
         else:
-            self.lbl_otd_status.config(text="Not Configured", style="BadgeYellow.TLabel")
+            self.lbl_otd_status.configure(text="Not Configured", text_color="#FBBF24")
 
         # 4. Check Phone via ADB
         self.check_connected_phone()
@@ -383,11 +350,11 @@ class OsuTabletCompanion(tk.Tk):
 
             if is_attached:
                 self.is_connected = True
-                self.btn_connect.config(text="Reconnect device", bg="#FBBF24", fg="#000000")
+                self.btn_connect.configure(text="Disconnect device", fg_color="#EF4444", hover_color="#DC2626", text_color="#FFFFFF")
                 self.log("Detected active USBip connection.")
             else:
                 self.is_connected = False
-                self.btn_connect.config(text="Connect device", bg="#22C55E", fg="#000000")
+                self.btn_connect.configure(text="Connect device", fg_color="#4ADE80", hover_color="#22C55E", text_color="#000000")
         except Exception:
             pass
 
@@ -407,7 +374,7 @@ class OsuTabletCompanion(tk.Tk):
 
     def check_connected_phone(self):
         if not self.adb_path:
-            self.lbl_device_info.config(text="ADB not available", fg="#F87171")
+            self.lbl_device_info.configure(text="ADB not available", text_color="#F87171")
             return
 
         try:
@@ -425,12 +392,12 @@ class OsuTabletCompanion(tk.Tk):
                 else:
                     model_text = market
 
-                self.lbl_device_info.config(text=f"{model_text} ({dev_id})", fg="#4ADE80")
+                self.lbl_device_info.configure(text=f"{model_text} ({dev_id})", text_color="#4ADE80")
                 self.log(f"Detected phone: {model_text} [{dev_id}]")
             else:
-                self.lbl_device_info.config(text="No device found (Connect USB cable)", fg="#FBBF24")
+                self.lbl_device_info.configure(text="No device found (Connect USB cable)", text_color="#FBBF24")
         except Exception:
-            self.lbl_device_info.config(text="ADB check error", fg="#F87171")
+            self.lbl_device_info.configure(text="ADB check error", text_color="#F87171")
 
     # ---------------- Downloader Methods ----------------
     def start_download_adb(self):
@@ -616,7 +583,7 @@ class OsuTabletCompanion(tk.Tk):
             subprocess.run([console_exe, "detect"], capture_output=True, text=True, creationflags=0x08000000)
 
         self.log(f"Generated and installed profile '{device_name}' into OTD!")
-        self.lbl_otd_status.config(text=f"Installed ({device_name})", style="BadgeGreen.TLabel")
+        self.lbl_otd_status.configure(text=f"Installed ({device_name})", text_color="#4ADE80")
 
         messagebox.showinfo("Profile Generated",
                             f"OpenTabletDriver profile auto-generated successfully!\n\n"
@@ -625,34 +592,37 @@ class OsuTabletCompanion(tk.Tk):
                             f"Dimensions: {width_mm}x{height_mm} mm\n\n"
                             f"Saved to:\n{dest_file}")
 
+
     def manual_otd_config(self):
-        dialog = tk.Toplevel(self)
+        dialog = ctk.CTkToplevel(self)
         dialog.title("Manual Config")
-        dialog.geometry("320x300")
-        dialog.configure(bg="#1E1E24")
+        dialog.geometry("380x420")
         dialog.resizable(False, False)
         dialog.transient(self)
         dialog.grab_set()
 
-        ttk.Label(dialog, text="Device Name:", style="Status.TLabel").pack(anchor="w", padx=10, pady=(10, 0))
-        ent_name = ttk.Entry(dialog)
+        font_lbl = ctk.CTkFont(family="Segoe UI", size=12)
+        font_ent = ctk.CTkFont(family="Segoe UI", size=13)
+
+        ctk.CTkLabel(dialog, text="Device Name:", font=font_lbl, text_color="#AAAAAA").pack(anchor="w", padx=20, pady=(20, 0))
+        ent_name = ctk.CTkEntry(dialog, font=font_ent)
         ent_name.insert(0, "My Android Tablet")
-        ent_name.pack(fill="x", padx=10, pady=2)
+        ent_name.pack(fill="x", padx=20, pady=5)
 
-        ttk.Label(dialog, text="Max X (Screen Width px):", style="Status.TLabel").pack(anchor="w", padx=10, pady=(10, 0))
-        ent_x = ttk.Entry(dialog)
+        ctk.CTkLabel(dialog, text="Max X (Screen Width px):", font=font_lbl, text_color="#AAAAAA").pack(anchor="w", padx=20, pady=(10, 0))
+        ent_x = ctk.CTkEntry(dialog, font=font_ent)
         ent_x.insert(0, "2400")
-        ent_x.pack(fill="x", padx=10, pady=2)
+        ent_x.pack(fill="x", padx=20, pady=5)
 
-        ttk.Label(dialog, text="Max Y (Screen Height px):", style="Status.TLabel").pack(anchor="w", padx=10, pady=(10, 0))
-        ent_y = ttk.Entry(dialog)
+        ctk.CTkLabel(dialog, text="Max Y (Screen Height px):", font=font_lbl, text_color="#AAAAAA").pack(anchor="w", padx=20, pady=(10, 0))
+        ent_y = ctk.CTkEntry(dialog, font=font_ent)
         ent_y.insert(0, "1080")
-        ent_y.pack(fill="x", padx=10, pady=2)
+        ent_y.pack(fill="x", padx=20, pady=5)
 
-        ttk.Label(dialog, text="Screen DPI:", style="Status.TLabel").pack(anchor="w", padx=10, pady=(10, 0))
-        ent_dpi = ttk.Entry(dialog)
+        ctk.CTkLabel(dialog, text="Screen DPI:", font=font_lbl, text_color="#AAAAAA").pack(anchor="w", padx=20, pady=(10, 0))
+        ent_dpi = ctk.CTkEntry(dialog, font=font_ent)
         ent_dpi.insert(0, "400")
-        ent_dpi.pack(fill="x", padx=10, pady=2)
+        ent_dpi.pack(fill="x", padx=20, pady=5)
 
         def on_save():
             try:
@@ -681,8 +651,8 @@ class OsuTabletCompanion(tk.Tk):
             except ValueError:
                 messagebox.showerror("Invalid Input", "Please enter valid numeric values for X, Y, and DPI.", parent=dialog)
 
-        btn_save = tk.Button(dialog, text="Save Config", command=on_save, bg="#10B981", fg="#000000", font=("Segoe UI", 10, "bold"), relief="flat", cursor="hand2")
-        btn_save.pack(fill="x", padx=10, pady=15)
+        btn_save = ctk.CTkButton(dialog, text="Save Config", command=on_save, fg_color="#4ADE80", text_color="#000000", hover_color="#22C55E", font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"), height=40)
+        btn_save.pack(fill="x", padx=20, pady=25)
 
     def sync_otd_config(self):
         src_json = os.path.join(APP_DIR, "AndroidTablet.json")
@@ -701,7 +671,7 @@ class OsuTabletCompanion(tk.Tk):
         shutil.copy2(src_json, dest_file)
 
         self.log(f"OpenTabletDriver profile synced to {target_dir}.")
-        self.lbl_otd_status.config(text="Profile Installed", style="BadgeGreen.TLabel")
+        self.lbl_otd_status.configure(text="Profile Installed", text_color="#4ADE80")
         messagebox.showinfo("Success", f"OpenTabletDriver configuration saved to:\n{dest_file}")
 
     # ---------------- Connect / Disconnect ----------------
@@ -742,7 +712,7 @@ class OsuTabletCompanion(tk.Tk):
             self.log("SUCCESS! Device connected via USBip!")
             self.log("OpenTabletDriver should now detect your device.")
             self.is_connected = True
-            self.btn_connect.config(text="Reconnect device", bg="#FBBF24", fg="#000000")
+            self.btn_connect.configure(text="Reconnect device", fg_color="#FBBF24", hover_color="#F59E0B", text_color="#000000")
         else:
             self.log(f"USBip output: {out}")
             if "refused" in out.lower() or "timeout" in out.lower():

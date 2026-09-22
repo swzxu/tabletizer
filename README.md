@@ -47,5 +47,10 @@ To compile the APK using Gradle:
 To build a standalone Windows executable, ensure Python 3 is installed and run:
 ```bash
 pip install pyinstaller
-pyinstaller --noconfirm --onefile --icon NONE --windowed desktop_client/main.py
+pip install customtkinter
+pyinstaller --noconfirm --onefile --windowed desktop_client/main.py
+```
+or run
+```
+desktop_client/build.bat
 ```
