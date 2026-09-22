@@ -12,20 +12,6 @@ import android.view.MotionEvent;
 import android.view.View;
 
 public class TabletAreaView extends View {
-    public enum AspectRatio {
-        RATIO_16_9("16:9", 16f / 9f),
-        RATIO_4_3("4:3", 4f / 3f),
-        RATIO_FULL("Fullscreen", 0f);
-
-        public final String title;
-        public final float ratio;
-
-        AspectRatio(String title, float ratio) {
-            this.title = title;
-            this.ratio = ratio;
-        }
-    }
-
     public enum AreaScale {
         SCALE_100("100% (Full)", 100),
         SCALE_80("80%", 80),
@@ -55,10 +41,12 @@ public class TabletAreaView extends View {
         }
     }
 
-    private AspectRatio currentRatio = AspectRatio.RATIO_16_9;
     private AreaScale currentScale = AreaScale.SCALE_100;
     private AreaPosition currentPosition = AreaPosition.CENTER;
     private boolean isAimOnly = false;
+    
+    private int screenMaxX = 2400;
+    private int screenMaxY = 1080;
 
     private final RectF activeRect = new RectF();
     private boolean isPenActive = false;
@@ -119,10 +107,6 @@ public class TabletAreaView extends View {
 
     private void loadPreferences() {
         SharedPreferences prefs = getContext().getSharedPreferences("tablet_prefs", Context.MODE_PRIVATE);
-        int ratioIdx = prefs.getInt("aspect_ratio", 0);
-        if (ratioIdx >= 0 && ratioIdx < AspectRatio.values().length) {
-            currentRatio = AspectRatio.values()[ratioIdx];
-        }
 
         int scaleIdx = prefs.getInt("area_scale", 0);
         if (scaleIdx >= 0 && scaleIdx < AreaScale.values().length) {
@@ -133,18 +117,11 @@ public class TabletAreaView extends View {
         if (posIdx >= 0 && posIdx < AreaPosition.values().length) {
             currentPosition = AreaPosition.values()[posIdx];
         }
-
-        isAimOnly = prefs.getBoolean("aim_only", false);
     }
-
-    public AspectRatio getAspectRatio() {
-        return currentRatio;
-    }
-
-    public void setAspectRatio(AspectRatio ratio) {
-        this.currentRatio = ratio;
-        getContext().getSharedPreferences("tablet_prefs", Context.MODE_PRIVATE)
-                .edit().putInt("aspect_ratio", ratio.ordinal()).apply();
+    
+    public void setScreenSize(int maxX, int maxY) {
+        this.screenMaxX = maxX;
+        this.screenMaxY = maxY;
         updateActiveRect(getWidth(), getHeight());
         invalidate();
     }
@@ -173,17 +150,6 @@ public class TabletAreaView extends View {
         invalidate();
     }
 
-    public boolean isAimOnly() {
-        return isAimOnly;
-    }
-
-    public void setAimOnly(boolean aimOnly) {
-        this.isAimOnly = aimOnly;
-        getContext().getSharedPreferences("tablet_prefs", Context.MODE_PRIVATE)
-                .edit().putBoolean("aim_only", aimOnly).apply();
-        invalidate();
-    }
-
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
@@ -193,12 +159,7 @@ public class TabletAreaView extends View {
     private void updateActiveRect(int w, int h) {
         if (w <= 0 || h <= 0) return;
 
-        float targetRatio;
-        if (currentRatio == AspectRatio.RATIO_FULL || currentRatio.ratio <= 0) {
-            targetRatio = (float) w / (float) h;
-        } else {
-            targetRatio = currentRatio.ratio;
-        }
+        float targetRatio = 16f / 9f;
 
         float maxW, maxH;
         float viewRatio = (float) w / (float) h;
@@ -252,12 +213,8 @@ public class TabletAreaView extends View {
         canvas.drawRoundRect(activeRect, 20f, 20f, activeAreaPaint);
         canvas.drawRoundRect(activeRect, 20f, 20f, borderPaint);
 
-        String label = currentRatio.title + " • " + currentScale.percent + "%";
+        String label = "16:9 • " + currentScale.percent + "%";
         canvas.drawText(label, activeRect.centerX(), activeRect.centerY(), textPaint);
-
-        if (isAimOnly) {
-            canvas.drawText("aim only", activeRect.centerX(), activeRect.centerY() + 38f, subTextPaint);
-        }
 
         if (isPenActive && lastTouchX >= 0 && lastTouchY >= 0) {
             canvas.drawCircle(lastTouchX, lastTouchY, 32f, touchPaint);
@@ -274,22 +231,23 @@ public class TabletAreaView extends View {
         float relX = (touchX - activeRect.left) / activeRect.width();
         float relY = (touchY - activeRect.top) / activeRect.height();
 
-        int normX = Math.round(relX * 2400f);
-        int normY = Math.round(relY * 1080f);
-        normX = Math.max(0, Math.min(2400, normX));
-        normY = Math.max(0, Math.min(1080, normY));
-
-        int pressure;
-        if (isAimOnly) {
-            pressure = 0; // Hover / Zero pressure: aim without mouse clicking
+        float targetRatio = 16f / 9f;
+        float screenRatio = (float) screenMaxX / (float) screenMaxY;
+        int areaX, areaY;
+        if (screenRatio > targetRatio) {
+            areaY = screenMaxY;
+            areaX = Math.round(screenMaxY * targetRatio);
         } else {
-            pressure = Math.round(rawPressure * 4095);
-            if (pressure <= 0) {
-                pressure = 2048;
-            } else {
-                pressure = Math.min(4095, Math.max(0, pressure));
-            }
+            areaX = screenMaxX;
+            areaY = Math.round(screenMaxX / targetRatio);
         }
+
+        int normX = Math.round(relX * areaX);
+        int normY = Math.round(relY * areaY);
+        normX = Math.max(0, Math.min(areaX, normX));
+        normY = Math.max(0, Math.min(areaY, normY));
+
+        int pressure = 0; // Hover / Zero pressure: aim without mouse clicking
 
         Intent broadcast = new Intent("position");
         broadcast.putExtra("x", normX);

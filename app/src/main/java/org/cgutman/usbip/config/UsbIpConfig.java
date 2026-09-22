@@ -34,9 +34,14 @@ public class UsbIpConfig extends ComponentActivity {
     private void sendScreenSize() {
         if (screenSize.x > 0 && screenSize.y > 0) {
             Intent broadcastSize = new Intent("maxSize");
-            broadcastSize.putExtra("maxX", 2400);
-            broadcastSize.putExtra("maxY", 1080);
+            broadcastSize.putExtra("maxX", screenSize.x);
+            broadcastSize.putExtra("maxY", screenSize.y);
             sendBroadcast(broadcastSize);
+            
+            if (tabletAreaView != null) {
+                tabletAreaView.setScreenSize(screenSize.x, screenSize.y);
+            }
+            
             screenSizeSet = true;
         }
     }
@@ -51,11 +56,33 @@ public class UsbIpConfig extends ComponentActivity {
         // Keep screen awake for long beatmaps
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
+        // Force maximum refresh rate for lower latency
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            android.view.Display.Mode[] modes = getWindowManager().getDefaultDisplay().getSupportedModes();
+            android.view.Display.Mode bestMode = null;
+            float maxHz = 0f;
+            for (android.view.Display.Mode mode : modes) {
+                if (mode.getRefreshRate() > maxHz) {
+                    maxHz = mode.getRefreshRate();
+                    bestMode = mode;
+                }
+            }
+            if (bestMode != null) {
+                WindowManager.LayoutParams lp = getWindow().getAttributes();
+                lp.preferredDisplayModeId = bestMode.getModeId();
+                getWindow().setAttributes(lp);
+            }
+        }
         setContentView(R.layout.activity_usbip_config);
 
         tabletAreaView = findViewById(R.id.tabletAreaView);
         btnSettings = findViewById(R.id.btnSettings);
         overlayDisconnected = findViewById(R.id.overlayDisconnected);
+        
+        android.widget.TextView tvIpAddress = findViewById(R.id.tvIpAddress);
+        if (tvIpAddress != null) {
+            tvIpAddress.setText("Wi-Fi IP: " + getLocalIpAddress());
+        }
 
         if (btnSettings != null && tabletAreaView != null) {
             updateButtonLabel();
@@ -66,14 +93,16 @@ public class UsbIpConfig extends ComponentActivity {
             @Override
             public void onReceive(android.content.Context context, Intent intent) {
                 boolean connected = intent.getBooleanExtra("connected", false);
-                if (overlayDisconnected != null) {
-                    overlayDisconnected.setVisibility(connected ? android.view.View.GONE : android.view.View.VISIBLE);
-                }
+                runOnUiThread(() -> {
+                    if (overlayDisconnected != null) {
+                        overlayDisconnected.setVisibility(connected ? android.view.View.GONE : android.view.View.VISIBLE);
+                    }
+                });
             }
         };
         android.content.IntentFilter filter = new android.content.IntentFilter("connectionState");
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(connectionReceiver, filter, 4); // RECEIVER_NOT_EXPORTED = 4
+            registerReceiver(connectionReceiver, filter, 2); // RECEIVER_EXPORTED = 2
         } else {
             registerReceiver(connectionReceiver, filter);
         }
@@ -99,17 +128,14 @@ public class UsbIpConfig extends ComponentActivity {
 
     private void updateButtonLabel() {
         if (btnSettings == null || tabletAreaView == null) return;
-        String aimPrefix = tabletAreaView.isAimOnly() ? "⚡ " : "";
-        btnSettings.setText("⚙ " + aimPrefix + tabletAreaView.getAspectRatio().title + " (" + tabletAreaView.getAreaScale().percent + "%)");
+        btnSettings.setText("Settings: (" + tabletAreaView.getAreaScale().percent + "%)");
     }
 
     private void showMainMenu() {
-        String aimOption = tabletAreaView.isAimOnly() ? "Aim" : "Click mode";
         String[] menuItems = new String[]{
-                "Aspect Ratio: " + tabletAreaView.getAspectRatio().title,
                 "Zone size: " + tabletAreaView.getAreaScale().title,
-                "Pozition: " + tabletAreaView.getAreaPosition().title,
-                aimOption
+                "Position: " + tabletAreaView.getAreaPosition().title,
+                "About"
         };
 
         new AlertDialog.Builder(this)
@@ -117,43 +143,18 @@ public class UsbIpConfig extends ComponentActivity {
                 .setItems(menuItems, (dialog, which) -> {
                     switch (which) {
                         case 0:
-                            showRatioDialog();
-                            break;
-                        case 1:
                             showScaleDialog();
                             break;
-                        case 2:
+                        case 1:
                             showPositionDialog();
                             break;
-                        case 3:
-                            tabletAreaView.setAimOnly(!tabletAreaView.isAimOnly());
-                            updateButtonLabel();
+                        case 2:
+                            Intent browserIntent = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/swzxu/tabletizer"));
+                            startActivity(browserIntent);
                             break;
                     }
                 })
                 .setNegativeButton("Close", null)
-                .show();
-    }
-
-    private void showRatioDialog() {
-        TabletAreaView.AspectRatio[] options = TabletAreaView.AspectRatio.values();
-        String[] titles = new String[options.length];
-        int selected = 0;
-        for (int i = 0; i < options.length; i++) {
-            titles[i] = options[i].title;
-            if (options[i] == tabletAreaView.getAspectRatio()) {
-                selected = i;
-            }
-        }
-
-        new AlertDialog.Builder(this)
-                .setTitle("Aspect ratio")
-                .setSingleChoiceItems(titles, selected, (dialog, which) -> {
-                    tabletAreaView.setAspectRatio(options[which]);
-                    updateButtonLabel();
-                    dialog.dismiss();
-                })
-                .setNegativeButton("Back", (dialog, which) -> showMainMenu())
                 .show();
     }
 
@@ -224,5 +225,24 @@ public class UsbIpConfig extends ComponentActivity {
             unregisterReceiver(connectionReceiver);
         }
         super.onDestroy();
+    }
+
+    private String getLocalIpAddress() {
+        try {
+            java.util.Enumeration<java.net.NetworkInterface> en = java.net.NetworkInterface.getNetworkInterfaces();
+            while (en.hasMoreElements()) {
+                java.net.NetworkInterface intf = en.nextElement();
+                java.util.Enumeration<java.net.InetAddress> enumIpAddr = intf.getInetAddresses();
+                while (enumIpAddr.hasMoreElements()) {
+                    java.net.InetAddress inetAddress = enumIpAddr.nextElement();
+                    if (!inetAddress.isLoopbackAddress() && inetAddress instanceof java.net.Inet4Address) {
+                        return inetAddress.getHostAddress();
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        return "Not connected to Wi-Fi";
     }
 }

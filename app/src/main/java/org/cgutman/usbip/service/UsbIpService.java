@@ -545,7 +545,10 @@ public class UsbIpService extends Service implements UsbRequestHandler {
 
         isConnected = true;
         updateNotification();
-        sendBroadcast(new Intent("connectionState").putExtra("connected", true));
+        Intent intent = new Intent("connectionState");
+        intent.setPackage(getPackageName());
+        intent.putExtra("connected", true);
+        sendBroadcast(intent);
         return true;
     }
 
@@ -583,7 +586,10 @@ public class UsbIpService extends Service implements UsbRequestHandler {
 
         isConnected = false;
         updateNotification();
-        sendBroadcast(new Intent("connectionState").putExtra("connected", false));
+        Intent intent = new Intent("connectionState");
+        intent.setPackage(getPackageName());
+        intent.putExtra("connected", false);
+        sendBroadcast(intent);
     }
 
     @Override

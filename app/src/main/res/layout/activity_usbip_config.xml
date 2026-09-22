@@ -50,6 +50,16 @@
             android:textColor="#CCCCCC"
             android:textSize="14sp"
             android:layout_marginTop="8dp" />
+
+        <TextView
+            android:id="@+id/tvIpAddress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="IP: ..."
+            android:textColor="#4ADE80"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginTop="12dp" />
     </LinearLayout>
 
 </FrameLayout>

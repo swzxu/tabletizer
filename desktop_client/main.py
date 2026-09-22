@@ -169,17 +169,34 @@ class OsuTabletCompanion(tk.Tk):
                             bg="#FFFFFF", fg="#DC2626", font=("Segoe UI", 9, "bold"), relief="flat", cursor="hand2")
             btn.pack(side="right", padx=5)
 
-        main_container = tk.Frame(self, bg="#121214", padx=16, pady=12)
+        def create_modern_button(parent, text, bg, fg, hover_bg, command, font=("Segoe UI", 9, "bold"), padx=10, pady=5, side=None, pack_kwargs=None):
+            btn = tk.Label(parent, text=text, bg=bg, fg=fg, font=font, padx=padx, pady=pady, cursor="hand2")
+            btn.bind("<Enter>", lambda e: btn.configure(bg=hover_bg))
+            btn.bind("<Leave>", lambda e: btn.configure(bg=bg))
+            btn.bind("<Button-1>", lambda e: command())
+            if pack_kwargs:
+                if "row" in pack_kwargs:
+                    btn.grid(**pack_kwargs)
+                else:
+                    btn.pack(**pack_kwargs)
+            elif side:
+                btn.pack(side=side, padx=5, pady=4)
+            return btn
+
+        self.create_modern_button = create_modern_button
+
+        main_container = tk.Frame(self, bg="#121214", padx=20, pady=16)
         main_container.pack(fill="both", expand=True)
 
         # Title section
         top_bar = tk.Frame(main_container, bg="#121214")
-        top_bar.pack(fill="x", pady=(0, 8))
-        tk.Label(top_bar, text="tabletizer!", font=("Segoe UI", 15, "bold"),
+        top_bar.pack(fill="x", pady=(0, 15))
+        tk.Label(top_bar, text="tabletizer!", font=("Segoe UI", 18, "bold"),
                  fg="#38BDF8", bg="#121214").pack(side="left")
-        btn_refresh = tk.Button(top_bar, text="Refresh Tools", command=self.refresh_environment,
-                                bg="#27272A", fg="#E4E4E7", font=("Segoe UI", 9), relief="flat", cursor="hand2", padx=8, pady=3)
-        btn_refresh.pack(side="right")
+        
+        self.create_modern_button(top_bar, text="Refresh Tools", command=self.refresh_environment,
+                                  bg="#27272A", fg="#E4E4E7", hover_bg="#3F3F46", 
+                                  font=("Segoe UI", 9), padx=12, pady=6, pack_kwargs={"side": "right"})
 
         # Top Card: Dependencies & Environment
         dep_card = ttk.Frame(main_container, style="Card.TFrame", padding=12)
@@ -191,17 +208,17 @@ class OsuTabletCompanion(tk.Tk):
         ttk.Label(dep_card, text="Android Platform Tools (ADB):", style="Status.TLabel").grid(row=1, column=0, sticky="w", pady=4)
         self.lbl_adb_status = ttk.Label(dep_card, text="Checking...", style="BadgeYellow.TLabel")
         self.lbl_adb_status.grid(row=1, column=1, sticky="w", padx=10, pady=4)
-        self.btn_dl_adb = tk.Button(dep_card, text="Download ADB", command=self.start_download_adb,
-                                    bg="#38BDF8", fg="#000000", font=("Segoe UI", 8, "bold"), relief="flat", cursor="hand2")
-        self.btn_dl_adb.grid(row=1, column=2, sticky="e", padx=5, pady=4)
-
+        self.btn_dl_adb = self.create_modern_button(dep_card, text="Download ADB", command=self.start_download_adb,
+                                    bg="#0284C7", fg="#FFFFFF", hover_bg="#0369A1", font=("Segoe UI", 8, "bold"),
+                                    pack_kwargs={"row": 1, "column": 2, "sticky": "e", "padx": 5, "pady": 4})
+        
         # 2. USBip Tool
         ttk.Label(dep_card, text="USBip Driver & Client:", style="Status.TLabel").grid(row=2, column=0, sticky="w", pady=4)
         self.lbl_usbip_status = ttk.Label(dep_card, text="Checking...", style="BadgeYellow.TLabel")
         self.lbl_usbip_status.grid(row=2, column=1, sticky="w", padx=10, pady=4)
-        self.btn_dl_usbip = tk.Button(dep_card, text="Get USBip", command=self.start_download_usbip,
-                                      bg="#38BDF8", fg="#000000", font=("Segoe UI", 8, "bold"), relief="flat", cursor="hand2")
-        self.btn_dl_usbip.grid(row=2, column=2, sticky="e", padx=5, pady=4)
+        self.btn_dl_usbip = self.create_modern_button(dep_card, text="Get USBip", command=self.start_download_usbip,
+                                      bg="#0284C7", fg="#FFFFFF", hover_bg="#0369A1", font=("Segoe UI", 8, "bold"),
+                                      pack_kwargs={"row": 2, "column": 2, "sticky": "e", "padx": 5, "pady": 4})
 
         # 3. OpenTabletDriver Config
         ttk.Label(dep_card, text="OpenTabletDriver Profile:", style="Status.TLabel").grid(row=3, column=0, sticky="w", pady=4)
@@ -211,17 +228,17 @@ class OsuTabletCompanion(tk.Tk):
         otd_btn_frame = tk.Frame(dep_card, bg="#1E1E24")
         otd_btn_frame.grid(row=3, column=2, sticky="e", padx=5, pady=4)
 
-        self.btn_gen_otd = tk.Button(otd_btn_frame, text="Auto-Generate Profile", command=self.generate_otd_config,
-                                     bg="#10B981", fg="#000000", font=("Segoe UI", 8, "bold"), relief="flat", cursor="hand2", padx=6)
-        self.btn_gen_otd.pack(side="left", padx=(0, 4))
+        self.btn_gen_otd = self.create_modern_button(otd_btn_frame, text="Auto-Generate Profile", command=self.generate_otd_config,
+                                     bg="#059669", fg="#FFFFFF", hover_bg="#047857", font=("Segoe UI", 8, "bold"),
+                                     pack_kwargs={"side": "left", "padx": (0, 4)})
 
-        self.btn_manual_otd = tk.Button(otd_btn_frame, text="Manual Config", command=self.manual_otd_config,
-                                        bg="#3B82F6", fg="#FFFFFF", font=("Segoe UI", 8, "bold"), relief="flat", cursor="hand2", padx=6)
-        self.btn_manual_otd.pack(side="left", padx=(0, 4))
+        self.btn_manual_otd = self.create_modern_button(otd_btn_frame, text="Manual Config", command=self.manual_otd_config,
+                                        bg="#2563EB", fg="#FFFFFF", hover_bg="#1D4ED8", font=("Segoe UI", 8, "bold"),
+                                        pack_kwargs={"side": "left", "padx": (0, 4)})
 
-        self.btn_sync_otd = tk.Button(otd_btn_frame, text="Sync Existing", command=self.sync_otd_config,
-                                      bg="#3F3F46", fg="#E4E4E7", font=("Segoe UI", 8), relief="flat", cursor="hand2", padx=6)
-        self.btn_sync_otd.pack(side="left")
+        self.btn_sync_otd = self.create_modern_button(otd_btn_frame, text="Sync Existing", command=self.sync_otd_config,
+                                      bg="#3F3F46", fg="#FFFFFF", hover_bg="#52525B", font=("Segoe UI", 8),
+                                      pack_kwargs={"side": "left"})
 
         dep_card.columnconfigure(0, weight=2)
         dep_card.columnconfigure(1, weight=3)
@@ -264,9 +281,9 @@ class OsuTabletCompanion(tk.Tk):
         btn_box = tk.Frame(ctrl_card, bg="#1E1E24")
         btn_box.pack(fill="x", pady=(8, 2))
 
-        self.btn_connect = tk.Button(btn_box, text="Connect device", command=self.on_connect_clicked,
-                                     bg="#22C55E", fg="#000000", font=("Segoe UI", 11, "bold"), relief="flat", cursor="hand2", padx=16, pady=8)
-        self.btn_connect.pack(expand=True, fill="x")
+        self.btn_connect = self.create_modern_button(btn_box, text="Connect device", command=self.on_connect_clicked,
+                                     bg="#22C55E", fg="#000000", hover_bg="#16A34A", font=("Segoe UI", 11, "bold"),
+                                     pack_kwargs={"expand": True, "fill": "x", "ipady": 5})
 
         # Bottom: Activity Log
         log_frame = tk.Frame(main_container, bg="#121214")
@@ -367,7 +384,7 @@ class OsuTabletCompanion(tk.Tk):
             if is_attached:
                 self.is_connected = True
                 self.btn_connect.config(text="Reconnect device", bg="#FBBF24", fg="#000000")
-                self.log("🔗 Detected active USBip connection.")
+                self.log("Detected active USBip connection.")
             else:
                 self.is_connected = False
                 self.btn_connect.config(text="Connect device", bg="#22C55E", fg="#000000")
@@ -408,8 +425,8 @@ class OsuTabletCompanion(tk.Tk):
                 else:
                     model_text = market
 
-                self.lbl_device_info.config(text=f"🟢 {model_text} ({dev_id})", fg="#4ADE80")
-                self.log(f"📱 Detected phone: {model_text} [{dev_id}]")
+                self.lbl_device_info.config(text=f"{model_text} ({dev_id})", fg="#4ADE80")
+                self.log(f"Detected phone: {model_text} [{dev_id}]")
             else:
                 self.lbl_device_info.config(text="No device found (Connect USB cable)", fg="#FBBF24")
         except Exception:
@@ -421,24 +438,24 @@ class OsuTabletCompanion(tk.Tk):
 
     def _download_adb_thread(self):
         try:
-            self.log("📥 Downloading Google Android Platform-Tools (ADB)...")
+            self.log("Downloading Google Android Platform-Tools (ADB)...")
             os.makedirs(BIN_DIR, exist_ok=True)
             zip_dest = os.path.join(BIN_DIR, "platform-tools.zip")
 
             urllib.request.urlretrieve(PLATFORM_TOOLS_URL, zip_dest)
-            self.log("📦 Extracting platform-tools...")
+            self.log("Extracting platform-tools...")
             with zipfile.ZipFile(zip_dest, "r") as z:
                 z.extractall(BIN_DIR)
             os.remove(zip_dest)
 
-            self.log("✅ Platform Tools successfully installed!")
+            self.log("Platform Tools successfully installed!")
             self.refresh_environment()
         except Exception as e:
-            self.log(f"❌ Failed to download ADB: {e}")
+            self.log(f"Failed to download ADB: {e}")
             messagebox.showerror("Download Error", f"Could not download ADB:\n{e}")
 
     def start_download_usbip(self):
-        self.log("🔗 Opening USBip releases page in your browser...")
+        self.log("Opening USBip releases page in your browser...")
         webbrowser.open("https://github.com/vadimgrn/usbip-win2/releases/latest")
         messagebox.showinfo("USBip Installation",
                             "Please download and run the installer from the GitHub releases page.\n\n"
@@ -458,7 +475,7 @@ class OsuTabletCompanion(tk.Tk):
         threading.Thread(target=self._generate_otd_thread, args=(otd_dir,), daemon=True).start()
 
     def _generate_otd_thread(self, otd_dir):
-        self.log("\n⚡ Auto-detecting device specifications for OpenTabletDriver...")
+        self.log("\nAuto-detecting device specifications for OpenTabletDriver...")
         try:
             # Check device
             res = subprocess.run([self.adb_path, "devices"], capture_output=True, text=True, timeout=5)
@@ -517,18 +534,30 @@ class OsuTabletCompanion(tk.Tk):
                 dpi_x = base_dpi
                 dpi_y = base_dpi
 
-            # Calculate physical dimensions in millimeters:
-            width_mm = round((max_x / dpi_y) * 25.4)
-            height_mm = round((max_y / dpi_x) * 25.4)
+            # Calculate the largest 16:9 box that fits inside the physical screen
+            target_ratio = 16 / 9
+            screen_ratio = max_x / max_y
+            
+            if screen_ratio > target_ratio:
+                area_y = max_y
+                area_x = int(max_y * target_ratio)
+            else:
+                area_x = max_x
+                area_y = int(max_x / target_ratio)
 
-            self.log(f"📱 Detected: {device_name}")
-            self.log(f"   Resolution (Landscape): {max_x} x {max_y}")
+            # Calculate physical dimensions in millimeters for the 16:9 area:
+            width_mm = round((area_x / dpi_y) * 25.4)
+            height_mm = round((area_y / dpi_x) * 25.4)
+
+            self.log(f"Detected: {device_name}")
+            self.log(f"   Physical Screen: {max_x} x {max_y}")
+            self.log(f"   16:9 Tablet Area: {area_x} x {area_y}")
             self.log(f"   DPI: {dpi_x:.1f} x {dpi_y:.1f}")
             self.log(f"   Physical Dimensions: {width_mm} mm x {height_mm} mm")
 
-            self._build_and_save_otd_config(otd_dir, device_name, max_x, max_y, width_mm, height_mm)
+            self._build_and_save_otd_config(otd_dir, device_name, area_x, area_y, width_mm, height_mm)
         except Exception as e:
-            self.log(f"❌ Error generating config: {e}")
+            self.log(f"Error generating config: {e}")
             messagebox.showerror("Error", f"Failed to generate config:\n{e}")
 
     def _build_and_save_otd_config(self, otd_dir, device_name, max_x, max_y, width_mm, height_mm):
@@ -586,7 +615,7 @@ class OsuTabletCompanion(tk.Tk):
         if os.path.exists(console_exe):
             subprocess.run([console_exe, "detect"], capture_output=True, text=True, creationflags=0x08000000)
 
-        self.log(f"✅ Generated and installed profile '{device_name}' into OTD!")
+        self.log(f"Generated and installed profile '{device_name}' into OTD!")
         self.lbl_otd_status.config(text=f"Installed ({device_name})", style="BadgeGreen.TLabel")
 
         messagebox.showinfo("Profile Generated",
@@ -632,14 +661,23 @@ class OsuTabletCompanion(tk.Tk):
                 max_y = int(ent_y.get().strip())
                 dpi = float(ent_dpi.get().strip())
                 
-                width_mm = round((max_x / dpi) * 25.4)
-                height_mm = round((max_y / dpi) * 25.4)
+                target_ratio = 16 / 9
+                screen_ratio = max_x / max_y
+                if screen_ratio > target_ratio:
+                    area_y = max_y
+                    area_x = int(max_y * target_ratio)
+                else:
+                    area_x = max_x
+                    area_y = int(max_x / target_ratio)
+                
+                width_mm = round((area_x / dpi) * 25.4)
+                height_mm = round((area_y / dpi) * 25.4)
 
                 from tkinter import filedialog
                 otd_dir = filedialog.askdirectory(title="Select OpenTabletDriver Installation Folder", parent=dialog)
                 if otd_dir:
                     dialog.destroy()
-                    self._build_and_save_otd_config(otd_dir, device_name, max_x, max_y, width_mm, height_mm)
+                    self._build_and_save_otd_config(otd_dir, device_name, area_x, area_y, width_mm, height_mm)
             except ValueError:
                 messagebox.showerror("Invalid Input", "Please enter valid numeric values for X, Y, and DPI.", parent=dialog)
 
@@ -662,7 +700,7 @@ class OsuTabletCompanion(tk.Tk):
         dest_file = os.path.join(target_dir, "AndroidTablet.json")
         shutil.copy2(src_json, dest_file)
 
-        self.log(f"✅ OpenTabletDriver profile synced to {target_dir}.")
+        self.log(f"OpenTabletDriver profile synced to {target_dir}.")
         self.lbl_otd_status.config(text="Profile Installed", style="BadgeGreen.TLabel")
         messagebox.showinfo("Success", f"OpenTabletDriver configuration saved to:\n{dest_file}")
 
@@ -678,37 +716,37 @@ class OsuTabletCompanion(tk.Tk):
         threading.Thread(target=self._connect_thread, daemon=True).start()
 
     def _connect_thread(self):
-        self.log("\n🚀 Starting connection sequence...")
+        self.log("\nStarting connection sequence...")
 
         # 1. Forward port if wired
         if self.conn_mode.get() == "wired":
-            self.log("🔌 Forwarding port 3240 over ADB...")
+            self.log("Forwarding port 3240 over ADB...")
             res = subprocess.run([self.adb_path, "forward", "tcp:3240", "tcp:3240"], capture_output=True, text=True, creationflags=0x08000000)
             if res.returncode != 0:
-                self.log(f"❌ adb forward failed: {res.stderr.strip()}")
+                self.log(f"adb forward failed: {res.stderr.strip()}")
                 messagebox.showerror("Connection Error", f"ADB port forward failed:\n{res.stderr}")
                 return
-            self.log("✅ Port 3240 forwarded successfully.")
+            self.log("Port 3240 forwarded successfully.")
             target_ip = "127.0.0.1"
         else:
             target_ip = self.entry_ip.get().strip()
-            self.log(f"📡 Using wireless IP: {target_ip}")
+            self.log(f"Using wireless IP: {target_ip}")
 
         # 2. Attach via USBip
-        self.log(f"🔗 Attaching to device at {target_ip} (bus 1-1)...")
+        self.log(f"Attaching to device at {target_ip} (bus 1-1)...")
         usbip_dir = os.path.dirname(self.usbip_path)
         res = subprocess.run([self.usbip_path, "attach", "-r", target_ip, "-b", "1-1"], capture_output=True, text=True, creationflags=0x08000000, cwd=usbip_dir)
         out = (res.stdout + "\n" + res.stderr).strip()
 
         if res.returncode == 0 or "attached" in out.lower():
-            self.log("🎉 SUCCESS! Device connected via USBip!")
+            self.log("SUCCESS! Device connected via USBip!")
             self.log("OpenTabletDriver should now detect your device.")
             self.is_connected = True
             self.btn_connect.config(text="Reconnect device", bg="#FBBF24", fg="#000000")
         else:
-            self.log(f"⚠️ USBip output: {out}")
+            self.log(f"USBip output: {out}")
             if "refused" in out.lower() or "timeout" in out.lower():
-                self.log("💡 Tip: Make sure the server app is RUNNING and active on your phone screen!")
+                self.log("Tip: Make sure the server app is RUNNING and active on your phone screen!")
             messagebox.showwarning("Attachment Result", f"Result from USBip:\n{out}")
 
 
