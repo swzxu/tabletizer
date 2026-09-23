@@ -6,10 +6,14 @@ import shutil
 import zipfile
 import threading
 import subprocess
+from usbip_driver import UsbIpDriver
 import ctypes
+import usbip_network
 import webbrowser
 import urllib.request
 import winreg
+import pystray
+from PIL import Image, ImageDraw
 import tkinter as tk
 import customtkinter as ctk
 ctk.set_appearance_mode('dark')
@@ -145,11 +149,91 @@ class OsuTabletCompanion(ctk.CTk):
         self.usbip_path = None
         self.is_connected = False
 
-        
+        # Config file in %APPDATA%\tabletizer
+        self.config_dir = os.path.join(os.environ.get("APPDATA", ""), "tabletizer")
+        os.makedirs(self.config_dir, exist_ok=True)
+        self.config_path = os.path.join(self.config_dir, "config.json")
+        self.config = self._load_config()
+
         self.build_ui()
+
+        # Restore saved preferences into UI
+        self._restore_ui_from_config()
+
+        # Tray icon (created lazily on first minimize-to-tray)
+        self._tray_icon = None
+        self._tray_thread = None
+
+        # Intercept window close → minimize to tray
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
 
         # Initial check in background
         self.after(300, self.refresh_environment)
+
+    # ---------------- Tray Icon ----------------
+    def _make_tray_image(self):
+        """Create a simple colored icon for the tray."""
+        # Try to load the real .ico first
+        if getattr(sys, 'frozen', False):
+            base = sys._MEIPASS
+        else:
+            base = os.path.dirname(os.path.abspath(__file__))
+        ico_path = os.path.join(base, "icon.ico")
+        if os.path.exists(ico_path):
+            try:
+                return Image.open(ico_path).resize((32, 32))
+            except Exception:
+                pass
+        # Fallback: draw a green circle
+        img = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+        d = ImageDraw.Draw(img)
+        d.ellipse([2, 2, 30, 30], fill="#4ADE80")
+        return img
+
+    def _on_close(self):
+        """Hide window to tray instead of closing."""
+        self.withdraw()
+        if self._tray_icon is None:
+            menu = pystray.Menu(
+                pystray.MenuItem("Restore Window", self._restore_window, default=True),
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem("Exit", self._quit_app),
+            )
+            self._tray_icon = pystray.Icon(
+                "tabletizer",
+                self._make_tray_image(),
+                "tabletizer",
+                menu=menu,
+            )
+            self._tray_thread = threading.Thread(target=self._tray_icon.run, daemon=True)
+            self._tray_thread.start()
+
+    def _restore_window(self, icon=None, item=None):
+        """Bring the window back from tray."""
+        self.after(0, self._show_window)
+
+    def _show_window(self):
+        self.deiconify()
+        self.lift()
+        self.focus_force()
+
+    def _quit_app(self, icon=None, item=None):
+        """Disconnect device and quit cleanly."""
+        # Disconnect from phone if connected
+        try:
+            drv = UsbIpDriver()
+            if drv.open():
+                for port in drv.get_imported_devices():
+                    drv.detach(port)
+                drv.close()
+        except Exception:
+            pass
+
+        # Stop tray icon
+        if self._tray_icon:
+            self._tray_icon.stop()
+
+        self.after(0, self.destroy)
 
     def build_ui(self):
         if not is_admin():
@@ -203,15 +287,19 @@ class OsuTabletCompanion(ctk.CTk):
         otd_btn_frame = ctk.CTkFrame(dep_card, fg_color="transparent")
         otd_btn_frame.grid(row=3, column=2, sticky="e", padx=15)
         self.btn_gen_otd = ctk.CTkButton(otd_btn_frame, text="Auto-Generate Profile", command=self.generate_otd_config,
-                                         fg_color="#4ADE80", text_color="#000000", hover_color="#22C55E", font=font_btn, width=150)
-        self.btn_gen_otd.pack(side="left", padx=(0, 10))
+                                         fg_color="#4ADE80", text_color="#000000", hover_color="#22C55E", font=font_btn, width=150, height=32)
+        self.btn_gen_otd.pack(side="left", padx=(0, 8))
         self.btn_manual_otd = ctk.CTkButton(otd_btn_frame, text="Manual Config", command=self.manual_otd_config,
-                                            fg_color="#444444", text_color="#FFFFFF", hover_color="#555555", font=font_btn, width=120)
-        self.btn_manual_otd.pack(side="left", padx=(0, 10))
-        self.btn_sync_otd = ctk.CTkButton(otd_btn_frame, text="Sync Existing", command=self.sync_otd_config,
-                                          fg_color="#222222", text_color="#AAAAAA", hover_color="#333333", font=ctk.CTkFont(family="Segoe UI", size=12), width=100)
-        self.btn_sync_otd.pack(side="left")
+                                            fg_color="#444444", text_color="#FFFFFF", hover_color="#555555", font=font_btn, width=120, height=32)
+        self.btn_manual_otd.pack(side="left")
+        self.btn_sync_otd = None
 
+        ctk.CTkLabel(dep_card, text="WinUSB Driver (Zadig):", font=font_status, text_color="#AAAAAA").grid(row=4, column=0, sticky="w", pady=8, padx=15)
+        self.lbl_zadig_status = ctk.CTkLabel(dep_card, text="Ready", font=font_badge, text_color="#4ADE80")
+        self.lbl_zadig_status.grid(row=4, column=1, sticky="w", padx=15)
+        self.btn_open_zadig = ctk.CTkButton(dep_card, text="Open Zadig", command=self.open_zadig,
+                                            fg_color="#444444", text_color="#FFFFFF", hover_color="#555555", font=font_btn, width=120)
+        self.btn_open_zadig.grid(row=4, column=2, sticky="e", padx=15)
         dep_card.columnconfigure(0, weight=0, minsize=200)
         dep_card.columnconfigure(1, weight=1)
         dep_card.columnconfigure(2, weight=0)
@@ -271,7 +359,103 @@ class OsuTabletCompanion(ctk.CTk):
         else:
             self.entry_ip.configure(state="disabled")
 
+    # ---------------- Config Persistence ----------------
+    def _load_config(self):
+        try:
+            with open(self.config_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+
+    def _save_config(self):
+        try:
+            with open(self.config_path, "w", encoding="utf-8") as f:
+                json.dump(self.config, f, indent=2)
+        except Exception:
+            pass
+
+    def _restore_ui_from_config(self):
+        # Restore last IP
+        last_ip = self.config.get("last_ip", "")
+        if last_ip:
+            self.entry_ip.configure(state="normal")
+            self.entry_ip.delete(0, "end")
+            self.entry_ip.insert(0, last_ip)
+
+        # Restore last mode
+        last_mode = self.config.get("last_mode", "wired")
+        if last_mode == "wireless":
+            self.seg_button.set("Wireless IP")
+            self.conn_mode.set("wireless")
+            self.entry_ip.configure(state="normal")
+        else:
+            self.seg_button.set("Wired USB")
+            self.conn_mode.set("wired")
+            self.entry_ip.configure(state="disabled")
+
+        # Restore Zadig status badge
+        if self.config.get("winusb_installed"):
+            self.lbl_zadig_status.configure(text="WinUSB Installed ✓", text_color="#4ADE80")
+
     # ---------------- Environment Detection ----------------
+    def open_zadig(self):
+        if getattr(sys, 'frozen', False):
+            base_dir = sys._MEIPASS
+        else:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+        zadig_path = os.path.join(base_dir, "driver", "zadig.exe")
+
+        # Build instruction popup window
+        popup = ctk.CTkToplevel(self)
+        popup.title("Install WinUSB Driver")
+        popup.geometry("520x420")
+        popup.resizable(False, False)
+        popup.grab_set()
+        popup.focus()
+
+        # Try to center over parent
+        self.update_idletasks()
+        x = self.winfo_x() + (self.winfo_width() - 520) // 2
+        y = self.winfo_y() + (self.winfo_height() - 420) // 2
+        popup.geometry(f"520x420+{x}+{y}")
+
+        ctk.CTkLabel(popup, text="Install WinUSB Driver via Zadig",
+                     font=ctk.CTkFont(family="Segoe UI", size=18, weight="bold"),
+                     text_color="#4ADE80").pack(pady=(20, 5))
+
+        instructions = (
+            "After clicking 'Open Zadig' below, follow these steps:\n\n"
+            "1.  In Zadig, open  Options → List All Devices\n\n"
+            "2.  In the dropdown, find your phone —\n"
+            "     it may appear as 'Unknown Device', 'Android' or\n"
+            "     'Tabletizer Device'  (VID 16C0 · PID 05DC)\n\n"
+            "3.  Make sure 'WinUSB' is selected as the target driver\n"
+            "     in the right-side box (with the green arrow)\n\n"
+            "4.  Click  'Install Driver'  or  'Replace Driver'\n\n"
+            "5.  Wait for the installation to complete, then close Zadig"
+        )
+        ctk.CTkLabel(popup, text=instructions,
+                     font=ctk.CTkFont(family="Segoe UI", size=13),
+                     text_color="#CCCCCC", justify="left").pack(padx=30, pady=(0, 20))
+
+        def launch_zadig():
+            if os.path.exists(zadig_path):
+                subprocess.Popen([zadig_path])
+                # Mark WinUSB as installed in config
+                self.config["winusb_installed"] = True
+                self._save_config()
+                self.lbl_zadig_status.configure(text="WinUSB Installed ✓", text_color="#4ADE80")
+            else:
+                messagebox.showerror("Zadig Not Found", f"Could not find zadig.exe at:\n{zadig_path}", parent=popup)
+
+        ctk.CTkButton(popup, text="Open Zadig", command=launch_zadig,
+                      fg_color="#4ADE80", text_color="#000000", hover_color="#22C55E",
+                      font=ctk.CTkFont(family="Segoe UI", size=15, weight="bold"), height=45).pack(fill="x", padx=30, pady=(0, 15))
+
+        ctk.CTkButton(popup, text="Done — Close", command=popup.destroy,
+                      fg_color="#333333", text_color="#AAAAAA", hover_color="#444444",
+                      font=ctk.CTkFont(family="Segoe UI", size=13), height=35).pack(fill="x", padx=30)
+
     def refresh_environment(self):
         threading.Thread(target=self._check_environment_thread, daemon=True).start()
 
@@ -294,15 +478,17 @@ class OsuTabletCompanion(ctk.CTk):
             self.lbl_adb_status.configure(text="Missing", text_color="#EF4444")
             self.btn_dl_adb.configure(state="normal")
 
-        # 2. Check USBip
-        path, status = find_installed_usbip(BIN_DIR)
-        self.usbip_path = path
-        if path:
-            self.lbl_usbip_status.configure(text=status, text_color="#4ADE80")
+        # 2. Check USBip Driver via API
+        drv = UsbIpDriver()
+        if drv.open():
+            self.usbip_path = "NATIVE_DRIVER"
+            self.lbl_usbip_status.configure(text="Installed", text_color="#4ADE80")
             self.btn_dl_usbip.configure(state="disabled")
+            drv.close()
         else:
-            self.lbl_usbip_status.configure(text="Missing", text_color="#EF4444")
-            self.btn_dl_usbip.configure(state="normal")
+            self.usbip_path = None
+            self.lbl_usbip_status.configure(text="Missing Driver", text_color="#EF4444")
+            self.btn_dl_usbip.configure(state="normal", text="Install Driver", command=self.install_native_driver)
 
         # 3. Check OTD Config
         otd_dirs = self.find_otd_dirs()
@@ -333,30 +519,20 @@ class OsuTabletCompanion(ctk.CTk):
         self.check_usbip_connection()
 
     def check_usbip_connection(self):
-        if not self.usbip_path:
-            return
-            
-        try:
-            # CREATE_NO_WINDOW = 0x08000000 to prevent console flash
-            usbip_dir = os.path.dirname(self.usbip_path)
-            res = subprocess.run([self.usbip_path, "port"], capture_output=True, text=True, timeout=3, creationflags=0x08000000, cwd=usbip_dir)
-            out = res.stdout
-
-            is_attached = False
-            if "Port in Use" in out:
-                is_attached = True
-            elif "Port 00:" in out and "Available" not in out:
-                is_attached = True
-
-            if is_attached:
-                self.is_connected = True
-                self.btn_connect.configure(text="Disconnect device", fg_color="#EF4444", hover_color="#DC2626", text_color="#FFFFFF")
-                self.log("Detected active USBip connection.")
-            else:
-                self.is_connected = False
-                self.btn_connect.configure(text="Connect device", fg_color="#4ADE80", hover_color="#22C55E", text_color="#000000")
-        except Exception:
-            pass
+        if not self.usbip_path: return
+        drv = UsbIpDriver()
+        if not drv.open(): return
+        
+        ports = drv.get_imported_devices()
+        drv.close()
+        
+        if ports:
+            self.is_connected = True
+            self.btn_connect.configure(text="Disconnect device", fg_color="#EF4444", hover_color="#DC2626", text_color="#FFFFFF")
+            self.log("Detected active USBip connection (Native).")
+        else:
+            self.is_connected = False
+            self.btn_connect.configure(text="Connect device", fg_color="#4ADE80", hover_color="#22C55E", text_color="#000000")
 
     def find_otd_dirs(self):
         dirs = []
@@ -400,6 +576,94 @@ class OsuTabletCompanion(ctk.CTk):
             self.lbl_device_info.configure(text="ADB check error", text_color="#F87171")
 
     # ---------------- Downloader Methods ----------------
+    def install_native_driver(self):
+        if not is_admin():
+            messagebox.showwarning("Admin Required", "Installing the kernel driver requires Administrator privileges.")
+            return
+            
+        self.log("Installing native kernel driver (usbip-win2)...")
+        self.btn_dl_usbip.configure(state="disabled", text="Installing...")
+        self.update()
+        
+        if hasattr(sys, '_MEIPASS'):
+            driver_dir = os.path.join(sys._MEIPASS, "driver", "ude")
+        else:
+            driver_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "driver", "ude")
+            
+        cer_path = os.path.join(driver_dir, "usbip-win2.cer")
+        inf_path = os.path.join(driver_dir, "usbip2_ude.inf")
+        
+        try:
+            self.log("Adding certificate to TrustedPublisher...")
+            subprocess.run(["certutil", "-addstore", "root", cer_path], capture_output=True, creationflags=0x08000000)
+            subprocess.run(["certutil", "-addstore", "TrustedPublisher", cer_path], capture_output=True, creationflags=0x08000000)
+            
+            self.log("Creating virtual device node...")
+            
+            import ctypes
+            from ctypes import wintypes
+            
+            setupapi = ctypes.windll.setupapi
+            newdev = ctypes.windll.newdev
+            
+            setupapi.SetupDiCreateDeviceInfoList.restype = ctypes.c_void_p
+            setupapi.SetupDiCreateDeviceInfoW.restype = wintypes.BOOL
+            setupapi.SetupDiSetDeviceRegistryPropertyW.restype = wintypes.BOOL
+            setupapi.SetupDiCallClassInstaller.restype = wintypes.BOOL
+            setupapi.SetupDiDestroyDeviceInfoList.restype = wintypes.BOOL
+            
+            class GUID(ctypes.Structure):
+                _fields_ = [("Data1", wintypes.DWORD), ("Data2", wintypes.WORD), ("Data3", wintypes.WORD), ("Data4", ctypes.c_byte * 8)]
+            
+            class SP_DEVINFO_DATA(ctypes.Structure):
+                _fields_ = [("cbSize", wintypes.DWORD), ("ClassGuid", GUID), ("DevInst", wintypes.DWORD), ("Reserved", ctypes.c_void_p)]
+            
+            USB_GUID = GUID(0x36FC9E60, 0xC465, 0x11CF, (ctypes.c_byte * 8)(0x80, 0x56, 0x44, 0x45, 0x53, 0x54, 0x00, 0x00))
+            hwid = "ROOT\\USBIP_WIN2\\UDE"
+            
+            hdevinfo = setupapi.SetupDiCreateDeviceInfoList(ctypes.byref(USB_GUID), None)
+            
+            devinfo_data = SP_DEVINFO_DATA()
+            devinfo_data.cbSize = ctypes.sizeof(SP_DEVINFO_DATA)
+            
+            res = setupapi.SetupDiCreateDeviceInfoW(
+                ctypes.c_void_p(hdevinfo), ctypes.c_wchar_p("USB"), ctypes.byref(USB_GUID), None, None, 1, ctypes.byref(devinfo_data))
+                
+            if res:
+                hwid_utf16 = hwid + "\0\0"
+                r2 = setupapi.SetupDiSetDeviceRegistryPropertyW(
+                    ctypes.c_void_p(hdevinfo), ctypes.byref(devinfo_data), 1, hwid_utf16.encode('utf-16le'), len(hwid_utf16) * 2)
+                if not r2: self.log(f"SetupDiSetDeviceRegistryPropertyW failed: {ctypes.GetLastError()}")
+                
+                r3 = setupapi.SetupDiCallClassInstaller(0x19, ctypes.c_void_p(hdevinfo), ctypes.byref(devinfo_data))
+                if not r3: self.log(f"SetupDiCallClassInstaller failed: {ctypes.GetLastError()}")
+            else:
+                err = ctypes.GetLastError()
+                if err != 0xE000020B: # ERROR_DEVINST_ALREADY_EXISTS
+                    self.log(f"SetupDiCreateDeviceInfoW failed: {err}")
+            
+            setupapi.SetupDiDestroyDeviceInfoList(ctypes.c_void_p(hdevinfo))
+            
+            self.log("Applying driver from INF...")
+            reboot = wintypes.BOOL(False)
+            r4 = newdev.UpdateDriverForPlugAndPlayDevicesW(
+                None, ctypes.c_wchar_p(hwid), ctypes.c_wchar_p(inf_path), 1, ctypes.byref(reboot))
+            if not r4: self.log(f"UpdateDriverForPlugAndPlayDevicesW failed: {ctypes.GetLastError()}")
+            
+            import time
+            time.sleep(2)
+            
+            drv = UsbIpDriver()
+            if drv.open():
+                self.log("Driver installed successfully!")
+                self.refresh_environment()
+            else:
+                self.log("Driver installation finished, but driver is still not available.")
+                self.btn_dl_usbip.configure(state="normal", text="Install Driver")
+        except Exception as e:
+            self.log(f"Installation error: {e}")
+            self.btn_dl_usbip.configure(state="normal", text="Install Driver")
+
     def start_download_adb(self):
         threading.Thread(target=self._download_adb_thread, daemon=True).start()
 
@@ -676,6 +940,20 @@ class OsuTabletCompanion(ctk.CTk):
 
     # ---------------- Connect / Disconnect ----------------
     def on_connect_clicked(self):
+        if getattr(self, 'is_connected', False):
+            # Disconnect
+            self.log("\nDisconnecting device...")
+            drv = UsbIpDriver()
+            if drv.open():
+                ports = drv.get_imported_devices()
+                for port in ports:
+                    drv.detach(port)
+                drv.close()
+            self.is_connected = False
+            self.btn_connect.configure(text="Connect device", fg_color="#4ADE80", hover_color="#22C55E", text_color="#000000")
+            self.log("Device disconnected.")
+            return
+
         if not self.adb_path and self.conn_mode.get() == "wired":
             messagebox.showwarning("ADB Missing", "Please install Platform Tools (ADB) first.")
             return
@@ -702,23 +980,51 @@ class OsuTabletCompanion(ctk.CTk):
             target_ip = self.entry_ip.get().strip()
             self.log(f"Using wireless IP: {target_ip}")
 
-        # 2. Attach via USBip
-        self.log(f"Attaching to device at {target_ip} (bus 1-1)...")
-        usbip_dir = os.path.dirname(self.usbip_path)
-        res = subprocess.run([self.usbip_path, "attach", "-r", target_ip, "-b", "1-1"], capture_output=True, text=True, creationflags=0x08000000, cwd=usbip_dir)
-        out = (res.stdout + "\n" + res.stderr).strip()
+        # Save last used IP and mode to config
+        self.config["last_ip"] = self.entry_ip.get().strip()
+        self.config["last_mode"] = self.conn_mode.get()
+        self._save_config()
 
-        if res.returncode == 0 or "attached" in out.lower():
-            self.log("SUCCESS! Device connected via USBip!")
-            self.log("OpenTabletDriver should now detect your device.")
-            self.is_connected = True
-            self.btn_connect.configure(text="Reconnect device", fg_color="#FBBF24", hover_color="#F59E0B", text_color="#000000")
+        # Fetch device list from USBip server
+        self.log(f"Fetching device list from {target_ip}...")
+        devices = usbip_network.get_exported_devices(target_ip)
+        if not devices:
+            self.log("No devices found on the server!")
+            messagebox.showwarning("Connection Failed", "Could not fetch devices from the phone. Make sure the app is running.")
+            return
+            
+        target_dev = devices[0]
+        busid = target_dev['busid']
+        vid = target_dev['vid']
+        pid = target_dev['pid']
+        self.log(f"Found device: busid={busid}, VID={hex(vid)}, PID={hex(pid)}")
+
+        # 2. Attach via Native Driver API
+        self.log(f"Attaching to device at {target_ip} (bus {busid})...")
+        drv = UsbIpDriver()
+        if not drv.open():
+            self.log("Error: Could not open USBip Driver handle.")
+            return
+            
+        port = drv.attach(target_ip, "3240", busid)
+        drv.close()
+        
+        if port > 0:
+            self.log("SUCCESS! Device connected directly via Kernel Driver!")
+            if not self.config.get("winusb_installed"):
+                self.log("→ WinUSB not yet installed. Opening Zadig instructions...")
+                self.after(500, self.open_zadig)
+            else:
+                self.log("→ WinUSB already installed. OpenTabletDriver should detect your device.")
+
+            # Fix: update button state on the main thread
+            self.after(0, lambda: (
+                setattr(self, 'is_connected', True),
+                self.btn_connect.configure(text="Disconnect device", fg_color="#EF4444", hover_color="#DC2626", text_color="#FFFFFF")
+            ))
         else:
-            self.log(f"USBip output: {out}")
-            if "refused" in out.lower() or "timeout" in out.lower():
-                self.log("Tip: Make sure the server app is RUNNING and active on your phone screen!")
-            messagebox.showwarning("Attachment Result", f"Result from USBip:\n{out}")
-
+            self.log(f"Kernel attachment failed (Error: {-port}). Is the app open on your phone?")
+            messagebox.showwarning("Attachment Failed", "Could not connect to the device. Make sure the server app is RUNNING and active on your phone screen.")
 
 
 
